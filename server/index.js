@@ -14,7 +14,6 @@ import path from "path";
 
 const CONFIG = {
   token: process.env.DISCORD_BRIDGE_TOKEN,
-  allowedUserIds: [],
   host: "127.0.0.1",
   port: parseInt(process.env.DISCORD_BRIDGE_PORT || "13456", 10),
   defaultTimeout: 5 * 60 * 1000,
@@ -24,16 +23,18 @@ const CONFIG = {
   sseKeepAliveInterval: 30 * 1000,
 };
 
-function isAllowedUser(authorId) {
-  return CONFIG.allowedUserIds.includes(authorId);
+// Per-channel allowed user IDs (registered via POST /register-channel)
+const channelAllowedUsers = new Map();
+
+function isAllowedUser(authorId, channelId) {
+  const allowed = channelAllowedUsers.get(channelId);
+  if (!allowed || allowed.length === 0) return true; // 未登録チャンネルは全員許可
+  return allowed.includes(authorId);
 }
 
 function validateConfig() {
   if (!CONFIG.token) {
     throw new Error("Missing required environment variable: DISCORD_BRIDGE_TOKEN");
-  }
-  if (CONFIG.allowedUserIds.length === 0) {
-    throw new Error("Missing required field in .discord-bridge.json: allowedUserIds (must have at least one entry)");
   }
 }
 
@@ -97,8 +98,8 @@ async function initDiscord() {
   });
 
   discordClient.on("messageCreate", (message) => {
-    if (!isAllowedUser(message.author.id)) return;
     if (message.author.bot) return;
+    if (!isAllowedUser(message.author.id, message.channel.id)) return;
 
     const chId = message.channel.id;
 
@@ -212,8 +213,23 @@ app.get("/health", (_req, res) => {
     response.channel = channelId;
     response.queuedMessages = getMessageQueue(channelId).length;
     response.sseSubscribers = getSseSubscribers(channelId).size;
+    response.allowedUserIds = channelAllowedUsers.get(channelId) ?? [];
   }
   res.json(response);
+});
+
+// ---- POST /register-channel ----
+app.post("/register-channel", (req, res) => {
+  const { channelId, allowedUserIds } = req.body;
+  if (!channelId) {
+    return res.status(400).json({ status: "error", error: "channelId is required" });
+  }
+  if (!Array.isArray(allowedUserIds)) {
+    return res.status(400).json({ status: "error", error: "allowedUserIds must be an array" });
+  }
+  const ids = allowedUserIds.filter((id) => typeof id === "string");
+  channelAllowedUsers.set(channelId, ids);
+  res.json({ status: "ok", channelId, allowedUserIds: ids });
 });
 
 // ---- GET /events (SSE) ----
@@ -297,7 +313,8 @@ app.post("/ask", async (req, res) => {
     fields,
   });
 
-  await sendMessage(channelId, `<@${CONFIG.allowedUserIds[0]}>`, [embed]);
+  const mentionUser = channelAllowedUsers.get(channelId)?.[0];
+  await sendMessage(channelId, mentionUser ? `<@${mentionUser}>` : null, [embed]);
 
   try {
     const reply = await waitForReply(channelId, timeoutMs);
@@ -453,25 +470,7 @@ app.get("/messages", async (req, res) => {
 // Lifecycle
 // ---------------------------------------------------------------------------
 
-async function loadProjectConfig() {
-  const configPath = path.join(process.cwd(), ".discord-bridge.json");
-  let projectConfig;
-  try {
-    const raw = await readFile(configPath, "utf-8");
-    projectConfig = JSON.parse(raw);
-  } catch {
-    throw new Error(`.discord-bridge.json not found or invalid JSON in ${process.cwd()}`);
-  }
-
-  if (Array.isArray(projectConfig.allowedUserIds)) {
-    CONFIG.allowedUserIds = projectConfig.allowedUserIds.filter(
-      (id) => typeof id === "string"
-    );
-  }
-}
-
 async function main() {
-  await loadProjectConfig();
   validateConfig();
   await initDiscord();
 
