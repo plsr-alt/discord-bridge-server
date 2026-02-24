@@ -1,3 +1,4 @@
 node_modules/
 .env
 .discord-bridge.json
+.DS_Store
