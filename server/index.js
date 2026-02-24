@@ -14,7 +14,7 @@ import path from "path";
 
 const CONFIG = {
   token: process.env.DISCORD_BRIDGE_TOKEN,
-  userId: process.env.DISCORD_BRIDGE_USER_ID,
+  allowedUserIds: [],
   host: "127.0.0.1",
   port: parseInt(process.env.DISCORD_BRIDGE_PORT || "13456", 10),
   defaultTimeout: 5 * 60 * 1000,
@@ -24,14 +24,16 @@ const CONFIG = {
   sseKeepAliveInterval: 30 * 1000,
 };
 
+function isAllowedUser(authorId) {
+  return CONFIG.allowedUserIds.includes(authorId);
+}
+
 function validateConfig() {
-  const missing = [];
-  if (!CONFIG.token) missing.push("DISCORD_BRIDGE_TOKEN");
-  if (!CONFIG.userId) missing.push("DISCORD_BRIDGE_USER_ID");
-  if (missing.length > 0) {
-    throw new Error(
-      `Missing required environment variables: ${missing.join(", ")}`
-    );
+  if (!CONFIG.token) {
+    throw new Error("Missing required environment variable: DISCORD_BRIDGE_TOKEN");
+  }
+  if (CONFIG.allowedUserIds.length === 0) {
+    throw new Error("Missing required field in .discord-bridge.json: allowedUserIds (must have at least one entry)");
   }
 }
 
@@ -95,7 +97,7 @@ async function initDiscord() {
   });
 
   discordClient.on("messageCreate", (message) => {
-    if (message.author.id !== CONFIG.userId) return;
+    if (!isAllowedUser(message.author.id)) return;
     if (message.author.bot) return;
 
     const chId = message.channel.id;
@@ -295,7 +297,7 @@ app.post("/ask", async (req, res) => {
     fields,
   });
 
-  await sendMessage(channelId, `<@${CONFIG.userId}>`, [embed]);
+  await sendMessage(channelId, `<@${CONFIG.allowedUserIds[0]}>`, [embed]);
 
   try {
     const reply = await waitForReply(channelId, timeoutMs);
@@ -428,7 +430,7 @@ app.get("/messages", async (req, res) => {
     const ch = await fetchChannel(channelId);
     const fetched = await ch.messages.fetch({ limit: remaining });
     const history = fetched
-      .filter((m) => m.author.id === CONFIG.userId && !m.author.bot)
+      .filter((m) => isAllowedUser(m.author.id) && !m.author.bot)
       .map((m) => ({
         content: m.content,
         attachments: m.attachments.map((a) => ({
@@ -451,7 +453,25 @@ app.get("/messages", async (req, res) => {
 // Lifecycle
 // ---------------------------------------------------------------------------
 
+async function loadProjectConfig() {
+  const configPath = path.join(process.cwd(), ".discord-bridge.json");
+  let projectConfig;
+  try {
+    const raw = await readFile(configPath, "utf-8");
+    projectConfig = JSON.parse(raw);
+  } catch {
+    throw new Error(`.discord-bridge.json not found or invalid JSON in ${process.cwd()}`);
+  }
+
+  if (Array.isArray(projectConfig.allowedUserIds)) {
+    CONFIG.allowedUserIds = projectConfig.allowedUserIds.filter(
+      (id) => typeof id === "string"
+    );
+  }
+}
+
 async function main() {
+  await loadProjectConfig();
   validateConfig();
   await initDiscord();
 

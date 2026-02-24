@@ -100,7 +100,6 @@ npm update -g discord-bridge
 
 ```bash
 export DISCORD_BRIDGE_TOKEN="your_bot_token_here"
-export DISCORD_BRIDGE_USER_ID="your_user_id_here"
 ```
 
 設定後、`source ~/.zshrc` で反映してください（新しいターミナルを開く場合は不要です）。
@@ -111,11 +110,14 @@ Claude Code / Codex CLI を使うプロジェクトのルートに `.discord-bri
 
 ```json
 {
-  "channelId": "your_channel_id_here"
+  "channelId": "your_channel_id_here",
+  "allowedUserIds": ["your_user_id_here"]
 }
 ```
 
-> **Note**: チャンネル ID は秘密情報ではありませんが、プロジェクト固有の設定です。チームで共有する場合はそのままコミットし、個人用の場合は `.gitignore` に追加してください。
+`allowedUserIds` に複数のユーザー ID を指定すると、全員の発言に応答します。1人目のユーザーが質問通知（`/ask`）のメンション対象になります。
+
+> **Note**: `channelId` と `allowedUserIds` は秘密情報ではありませんが、プロジェクト固有の設定です。チームで共有する場合はそのままコミットし、個人用の場合は `.gitignore` に追加してください。
 
 ### 4. スキルのインストール
 
@@ -190,7 +192,7 @@ Discord で「戻ったよ」と伝えます。
 | Bot がオフライン | `DISCORD_BRIDGE_TOKEN` が正しいか |
 | メッセージが届かない | MESSAGE CONTENT INTENT が有効か |
 | チャンネルが見つからない | `.discord-bridge.json` の `channelId` が正しいか |
-| 返答が受信されない | `DISCORD_BRIDGE_USER_ID` が正しいか |
+| 返答が受信されない | `.discord-bridge.json` の `allowedUserIds` が正しいか |
 
 ## ライセンス
 
