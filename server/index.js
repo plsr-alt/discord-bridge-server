@@ -99,9 +99,16 @@ async function initDiscord() {
 
   discordClient.on("messageCreate", (message) => {
     if (message.author.bot) return;
-    if (!isAllowedUser(message.author.id, message.channel.id)) return;
 
     const chId = message.channel.id;
+
+    // 監視対象チャンネルのみ処理する（未登録チャンネルは無視）
+    const isRegistered = channelAllowedUsers.has(chId);
+    const hasSubscribers = sseSubscribers.has(chId) && sseSubscribers.get(chId).size > 0;
+    const hasPending = pendingQuestions.has(chId);
+    if (!isRegistered && !hasSubscribers && !hasPending) return;
+
+    if (!isAllowedUser(message.author.id, chId)) return;
 
     const parsed = {
       content: message.content,
