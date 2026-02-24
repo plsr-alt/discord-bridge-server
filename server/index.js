@@ -28,7 +28,8 @@ const channelAllowedUsers = new Map();
 
 function isAllowedUser(authorId, channelId) {
   const allowed = channelAllowedUsers.get(channelId);
-  if (!allowed || allowed.length === 0) return true; // 未登録チャンネルは全員許可
+  if (allowed === undefined) return true; // 未登録チャンネルはフィルタなし
+  if (allowed.length === 0) return false; // 空配列はdeny all（安全側）
   return allowed.includes(authorId);
 }
 
