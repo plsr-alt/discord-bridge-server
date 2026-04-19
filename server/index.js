@@ -125,6 +125,7 @@ async function initDiscord() {
       })),
       timestamp: message.createdAt.toISOString(),
       id: message.id,
+      author: message.author.bot ? 'bot' : (message.author.username || 'user'),
     };
 
     const pending = pendingQuestions.get(chId);
