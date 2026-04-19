@@ -3,9 +3,9 @@
 # Usage: discord-status.sh
 PORT="${DISCORD_BRIDGE_PORT:-13456}"
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-CHANNEL_ID=""
+CHANNEL_ID="${DISCORD_CHANNEL_ID:-}"
 ALLOWED_USER_IDS=""
-if [ -n "$PROJECT_ROOT" ] && [ -f "$PROJECT_ROOT/.discord-bridge.json" ]; then
+if [ -z "$CHANNEL_ID" ] && [ -n "$PROJECT_ROOT" ] && [ -f "$PROJECT_ROOT/.discord-bridge.json" ]; then
   CHANNEL_ID=$(python3 -c "import json; print(json.load(open('$PROJECT_ROOT/.discord-bridge.json')).get('channelId', ''))" 2>/dev/null)
   ALLOWED_USER_IDS=$(python3 -c "import json; print(json.dumps(json.load(open('$PROJECT_ROOT/.discord-bridge.json')).get('allowedUserIds', [])))" 2>/dev/null)
 fi

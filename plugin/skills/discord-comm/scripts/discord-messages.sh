@@ -5,8 +5,8 @@ COUNT="${1:-10}"
 HISTORY="${2:-false}"
 PORT="${DISCORD_BRIDGE_PORT:-13456}"
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-CHANNEL_ID=""
-if [ -n "$PROJECT_ROOT" ] && [ -f "$PROJECT_ROOT/.discord-bridge.json" ]; then
+CHANNEL_ID="${DISCORD_CHANNEL_ID:-}"
+if [ -z "$CHANNEL_ID" ] && [ -n "$PROJECT_ROOT" ] && [ -f "$PROJECT_ROOT/.discord-bridge.json" ]; then
   CHANNEL_ID=$(python3 -c "import json; print(json.load(open('$PROJECT_ROOT/.discord-bridge.json'))['channelId'])" 2>/dev/null)
 fi
 
