@@ -179,9 +179,13 @@ async function sendDebugMessage(channel, message) {
   return channel.send({ embeds: [embed] }).catch(() => {});
 }
 
-async function sendMessage(channelId, content, embeds = [], files = []) {
+async function sendMessage(channelId, content, embeds = [], files = [], replyToId = null) {
   const ch = await fetchChannel(channelId);
-  return ch.send({ content, embeds, files });
+  const opts = { content, embeds, files };
+  if (replyToId) {
+    opts.reply = { messageReference: replyToId, failIfNotExists: false };
+  }
+  return ch.send(opts);
 }
 
 function waitForReply(channelId, timeoutMs) {
